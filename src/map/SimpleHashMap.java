@@ -13,7 +13,7 @@ public class SimpleHashMap<K, V> implements Map<K, V> {
     public static void main(String[] args) {
         SimpleHashMap<Integer, Integer> map = new SimpleHashMap<>();
         Random rng = new Random();
-        for (int i = 0; i < 512; i++) {
+        for (int i = 0; i < 64; i++) {
             map.put(rng.nextInt(512), rng.nextInt(512));
         }
         System.out.println(map.show());
@@ -67,17 +67,14 @@ public class SimpleHashMap<K, V> implements Map<K, V> {
     public V get(Object key) {
         int index = index((K) key);
         if (table[index] == null) return null;
-        Entry<K, V> current = table[index];
-        while (!current.getKey().equals(key)) {
-            if (current.next == null) return null;
-            current = current.next;
-        }
-        return current.getValue();
+        Entry<K, V> res = find(index, (K) key);
+        if (res == null) return null;
+        return res.getValue();
     }
 
     public V put(K key, V value) {
         V result = put2(key, value);
-        if (((double) table.length) / ((double) size) < loadFactor) rehash();
+        if (((double) size) / ((double) table.length) > loadFactor) rehash();
         return result;
     }
 
@@ -120,42 +117,26 @@ public class SimpleHashMap<K, V> implements Map<K, V> {
     public V remove(Object key) {
         int index = index((K) key);
 
-        //nothing in bucket
-        if (table[index] == null) return null;
+        if (find(index, (K) key) == null) return null;
 
-        //guaranteed at least one element in bucket
         Entry<K, V> current = table[index];
 
         //check if it's the only element
         if (current.next == null) {
-            //matching, remove and return
-            if (current.getKey().equals(key)) {
-                V value = current.getValue();
-                table[index] = null;
-                size--;
-                return value;
-            }
-            //not matching
-            return null;
-        }
-
-        //now guaranteed to have more than one element
-
-        //check if first element matches
-        if (current.getKey().equals(key)) {
+            //only element and it exists, must be right
             V value = current.getValue();
-            table[index] = current.next;
+            table[index] = null;
             size--;
             return value;
         }
 
-        //current element does not match
+        //now we know it's not the first element, just iterate till it's found
         while (!current.next.getKey().equals(key)) {
-            //if last element, return null
-            if (current.next.next == null) return null;
             current = current.next;
         }
+        //get the correct value
         V value = current.next.getValue();
+        //if the target has a next element set the next pointer of current element to that, otherwise to null. both cases abandon the desired element to garbage collector.
         if (current.next.next != null) current.next = current.next.next;
         else current.next = null;
         size--;
