@@ -6,17 +6,23 @@ import java.util.Random;
  * Created by Sepehr on 2/12/2017.
  */
 public class SimpleHashMap<K, V> implements Map<K, V> {
-    int size;
-    double loadFactor;
-    Entry<K, V>[] table;
+    private int size;
+    private double loadFactor;
+    private Entry<K, V>[] table;
 
     public static void main(String[] args) {
         SimpleHashMap<Integer, Integer> map = new SimpleHashMap<>();
         Random rng = new Random();
-        for (int i = 0; i < 64; i++) {
-            map.put(rng.nextInt(512), rng.nextInt(512));
+        int replaced = 0, iterations = 512, upper = 2048;
+        for (int i = 0; i < iterations; i++) {
+            int a = rng.nextInt(upper);
+            if (map.put(a, a) != null) replaced++;
         }
         System.out.println(map.show());
+        System.out.println("Iterations: " + iterations);
+        System.out.println("Upper bound for random: " + upper);
+        System.out.println("Map elements: " + map.size());
+        System.out.println("Entries replaced: " + replaced);
     }
 
     //default capacity 16
@@ -55,12 +61,12 @@ public class SimpleHashMap<K, V> implements Map<K, V> {
 
     private Entry<K, V> find(int index, K key) {
         if (table[index] == null) return null;
-        Entry current = table[index];
+        Entry<K, V> current = table[index];
         while (!current.getKey().equals(key)) {
             if (current.next == null) return null;
             current = current.next;
         }
-        return (Entry<K, V>) current;
+        return current;
     }
 
 
@@ -80,22 +86,20 @@ public class SimpleHashMap<K, V> implements Map<K, V> {
 
     private V put2(K key, V value) {
         int index = index(key);
+        Entry<K, V> current = find(index, key);
+        if (current != null) return current.setValue(value);
         if (table[index] == null) {
             table[index] = new Entry<K, V>(key, value);
             size++;
             return null;
         }
-        Entry<K, V> current = table[index];
-        while (!current.getKey().equals(key)) {
-            if (current.next != null) {
-                current = current.next;
-            } else {
-                current.next = new Entry<K, V>(key, value);
-                size++;
-                return null;
-            }
+        current = table[index];
+        while (current.next != null) {
+            current = current.next;
         }
-        return current.setValue(value);
+        current.next = new Entry<K, V>(key, value);
+        size++;
+        return null;
     }
 
     private void rehash() {
@@ -117,15 +121,24 @@ public class SimpleHashMap<K, V> implements Map<K, V> {
     public V remove(Object key) {
         int index = index((K) key);
 
+        //if it doesn't exist then don't bother looking for it
         if (find(index, (K) key) == null) return null;
 
         Entry<K, V> current = table[index];
 
-        //check if it's the only element
+        //if it's the only element, it must be the one
         if (current.next == null) {
-            //only element and it exists, must be right
             V value = current.getValue();
             table[index] = null;
+            size--;
+            return value;
+        }
+
+        //first element matches, point array pointer for original element to second element
+        if (current.getKey().equals(key)) {
+            Entry<K, V> newEntry = current.next;
+            V value = current.getValue();
+            table[index] = newEntry;
             size--;
             return value;
         }
